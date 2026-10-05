@@ -1,11 +1,10 @@
-# Lint-only CI workflow (Milestone M1.1).
+# CI workflows for the Xenon desktop repository.
 #
-# Runs the same three checks as the local pre-commit hook, plus a Python
-# style check (ruff) for the tools themselves. No compilation, no engine
-# builds: engine builds come in later milestones (M1.4, M1.5).
-#
-# Why Ubuntu only: every check here is plain Python and platform
-# independent, so a second OS would double the minutes for no coverage.
+# Job 1 "lint": the repository checks — Python tools style plus the three
+# pre-commit checks (secrets, URL logging, file length). Fast, no build.
+# Job 2 "ui": the shared UI — typecheck, build, component tests, and the
+# automated zero-external-requests check (Design.md 4.1). No engine builds:
+# those come with the host milestones (M1.4, M1.5) and run separately.
 
 name: lint
 
@@ -38,3 +37,27 @@ jobs:
         run: python desktop/tools/check-no-url-logging.py
       - name: Check file length limit of 300 lines (Rules.md 4.1)
         run: python desktop/tools/check-file-length.py
+
+  ui:
+    name: Shared UI — build and tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop/ui
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/ui/package-lock.json
+      - name: Install exact dependencies from the lock file
+        run: npm ci
+      - name: Typecheck, then build with build-time Tailwind
+        run: npm run build
+      - name: Component, bridge and store tests
+        run: npm test
+      - name: Zero external requests in the built output (Design.md 4.1)
+        run: npm run check:no-external

@@ -1,0 +1,38 @@
+/* GENERATED from tokens.json (Design.md section 3). Do not edit by hand:
+   run `npm run tokens` from desktop/ui. */
+:root {
+  --xenon-color-surface: #131318;
+  --xenon-color-surface-container-lowest: #0e0e13;
+  --xenon-color-surface-container-low: #1b1b20;
+  --xenon-color-surface-container: #1f1f24;
+  --xenon-color-surface-container-high: #2a292f;
+  --xenon-color-surface-container-highest: #35343a;
+  --xenon-color-primary: #dfb7ff;
+  --xenon-color-primary-container: #9d00ff;
+  --xenon-color-on-primary-container: #ffffff;
+  --xenon-color-secondary: #e8b3ff;
+  --xenon-color-on-surface: #e4e1e9;
+  --xenon-color-on-surface-variant: #d1c1d9;
+  --xenon-color-outline: #9a8ca2;
+  --xenon-color-outline-variant: #4e4356;
+  --xenon-color-error: #ffb4ab;
+  --xenon-color-success: #8bd88f;
+  --xenon-color-warning: #f5c542;
+  --xenon-radius-control: 8px;
+  --xenon-radius-panel: 16px;
+  --xenon-radius-pill: 999px;
+  --xenon-shadow-recessed: inset 2px 2px 4px #060608, inset -2px -2px 4px #262536;
+  --xenon-shadow-extruded-1: 3px 3px 6px #07070B, -2px -2px 5px #222230;
+  --xenon-shadow-floating-2: 0 8px 24px rgba(157, 0, 255, 0.18), 0 2px 6px rgba(0, 0, 0, 0.7);
+  --xenon-shadow-active-glow: 0 0 12px rgba(184, 41, 255, 0.45);
+  --xenon-shadow-bevel-border: linear-gradient(to bottom right, #2E2D40, #101016);
+  --xenon-font-headline: 'Space Grotesk', 'Geist', system-ui, sans-serif;
+  --xenon-font-body: 'Geist', system-ui, sans-serif;
+  --xenon-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --xenon-motion-press: 90ms;
+  --xenon-motion-hover: 120ms;
+  --xenon-motion-tab: 150ms;
+  --xenon-motion-popover: 120ms;
+  --xenon-motion-sidebar: 180ms;
+  --xenon-motion-switch: 150ms;
+}

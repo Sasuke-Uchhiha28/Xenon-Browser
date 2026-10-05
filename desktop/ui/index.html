@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en" data-effects="auto">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      Strict CSP (Design.md 4.1): everything local, nothing remote.
+      style-src 'unsafe-inline' is required for React inline style attributes
+      and the dev server's injected style tags; scripts, fonts and images
+      are strictly 'self'.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="color-scheme" content="dark" />
+    <title>Xenon</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Overlay layer: popovers and menus render here, never beside web content (Design.md 5.1). -->
+    <div id="xenon-overlay"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

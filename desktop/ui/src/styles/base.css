@@ -1,0 +1,121 @@
+/* Application stylesheet. Tokens come from tokens.css (generated from
+   Design.md section 3); this file maps them into Tailwind's theme and
+   defines the base element styles and the Reduced-effects overrides
+   (Design.md 4.7). No hard-coded colors, shadows, radii or fonts. */
+@import 'tailwindcss';
+@import './tokens.css';
+@import './fonts.css';
+
+@theme {
+  --color-surface: var(--xenon-color-surface);
+  --color-surface-lowest: var(--xenon-color-surface-container-lowest);
+  --color-surface-low: var(--xenon-color-surface-container-low);
+  --color-surface-container: var(--xenon-color-surface-container);
+  --color-surface-high: var(--xenon-color-surface-container-high);
+  --color-surface-highest: var(--xenon-color-surface-container-highest);
+  --color-primary: var(--xenon-color-primary);
+  --color-primary-container: var(--xenon-color-primary-container);
+  --color-on-primary-container: var(--xenon-color-on-primary-container);
+  --color-secondary: var(--xenon-color-secondary);
+  --color-on-surface: var(--xenon-color-on-surface);
+  --color-on-surface-variant: var(--xenon-color-on-surface-variant);
+  --color-outline: var(--xenon-color-outline);
+  --color-outline-variant: var(--xenon-color-outline-variant);
+  --color-error: var(--xenon-color-error);
+  --color-success: var(--xenon-color-success);
+  --color-warning: var(--xenon-color-warning);
+
+  --font-headline: var(--xenon-font-headline);
+  --font-body: var(--xenon-font-body);
+  --font-mono: var(--xenon-font-mono);
+
+  --radius-control: var(--xenon-radius-control);
+  --radius-panel: var(--xenon-radius-panel);
+
+  --shadow-recessed: var(--xenon-shadow-recessed);
+  --shadow-extruded: var(--xenon-shadow-extruded-1);
+  --shadow-floating: var(--xenon-shadow-floating-2);
+  --shadow-glow: var(--xenon-shadow-active-glow);
+
+  --animate-popover-in: xenon-popover-in var(--xenon-motion-popover) ease-out;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-surface font-body text-sm text-on-surface antialiased;
+    overflow: hidden;
+  }
+
+  /* Visible focus ring everywhere (Design.md 4.8): 2px violet, 2px offset. */
+  :focus-visible {
+    outline: 2px solid var(--xenon-color-primary-container);
+    outline-offset: 2px;
+  }
+
+  /* Material Symbols subset renders glyphs by codepoint via the Icon
+     component; ligatures were dropped when subsetting. */
+  .icon-font {
+    font-family: 'Material Symbols Xenon';
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: normal;
+    text-transform: none;
+    display: inline-block;
+    white-space: nowrap;
+    word-wrap: normal;
+    direction: ltr;
+  }
+}
+
+/* Bevel border from Design.md 3.2: a 1px gradient edge on raised panels. */
+@utility bevel-border {
+  border: 1px solid transparent;
+  border-image: var(--xenon-shadow-bevel-border) 1;
+}
+
+/*
+ * Reduced-effects mode (Design.md 4.7): no glows, no blur, no looping
+ * animations, flat shadows. Active when the system asks for reduced motion,
+ * or when the user forces it via the data-effects attribute.
+ */
+:root[data-effects='reduced'] {
+  --xenon-motion-press: 0ms;
+  --xenon-motion-hover: 0ms;
+  --xenon-motion-tab: 0ms;
+  --xenon-motion-popover: 0ms;
+  --xenon-motion-sidebar: 0ms;
+  --xenon-motion-switch: 0ms;
+  --xenon-shadow-active-glow: none;
+  --xenon-shadow-floating-2: 0 2px 6px rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --xenon-motion-press: 0ms;
+    --xenon-motion-hover: 0ms;
+    --xenon-motion-tab: 0ms;
+    --xenon-motion-popover: 0ms;
+    --xenon-motion-sidebar: 0ms;
+    --xenon-motion-switch: 0ms;
+    --xenon-shadow-active-glow: none;
+    --xenon-shadow-floating-2: 0 2px 6px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* Popover entrance (Design.md 8): fade and 4px slide. */
+@keyframes xenon-popover-in {
+  from {
+    opacity: 0;
+    translate: 0 -4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}

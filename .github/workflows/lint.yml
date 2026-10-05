@@ -7,7 +7,10 @@
 # those come with the host milestones (M1.4, M1.5) and run separately.
 # Job 3 "core": the Rust core — formatting, clippy, tests and a security
 # audit on Linux, plus tests on Windows. The SQLCipher/OpenSSL build needs
-# Perl, which both runners ship.
+# Perl, which both runners ship. The keystore tests talk to a real Secret
+# Service: a headless gnome-keyring runs inside a private D-Bus session,
+# and any failure is echoed back as annotations so it can be read without
+# repository admin rights.
 
 name: lint
 
@@ -83,30 +86,22 @@ jobs:
         run: cargo fmt --check
       - name: Lint with all warnings as errors
         run: cargo clippy --workspace --all-targets -- -D warnings
-      # The keystore tests talk to a real Secret Service. A headless
-      # gnome-keyring inside a private D-Bus session provides one: start
-      # the daemon first, then unlock (and create) the default keyring
-      # with an empty password.
       - name: Start a headless Secret Service and run tests
         run: |
           sudo apt-get install -y gnome-keyring
-          dbus-run-session -- bash -c '
-            eval "$(gnome-keyring-daemon --start --components=secrets 2>/dev/null)" || exit 1
+          dbus-run-session -- bash /dev/stdin <<'SCRIPT'
+            eval "$(gnome-keyring-daemon --start --components=secrets 2>/dev/null)" || { echo "::error::gnome-keyring daemon did not start"; exit 1; }
             eval "$(echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null)"
             export XENON_FORCE_KEYSTORE_TEST=1
             set -o pipefail
             cargo test --workspace 2>&1 | tee /tmp/core-test.log
-          '
-      # The keystore work is being verified across platforms; when the
-      # Linux tests fail, the log lands as a downloadable artifact so the
-      # failure can be read without repository admin rights.
-      - name: Save the test log when this step failed
-        if: failure()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: core-test-log
-          path: /tmp/core-test.log
-          if-no-files-found: ignore
+            status=$?
+            if [ $status -ne 0 ]; then
+              echo "::error::cargo test failed with exit code $status; details in the annotations below"
+              grep -B2 -A12 "panicked at\|FAILED\|failures:" /tmp/core-test.log | head -40 | while IFS= read -r line; do echo "::error::${line:0:300}"; done
+              exit $status
+            fi
+          SCRIPT
       - name: Security audit of dependencies
         run: |
           cargo install cargo-audit --locked

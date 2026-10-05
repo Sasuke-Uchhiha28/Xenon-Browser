@@ -9,7 +9,10 @@
   DB + migrations (`settings`, `site_prefs`), keystore (Windows Credential
   Manager / Linux Secret Service) with Argon2id master-password wrap,
   PRIV-05 rejecting logger. 46 tests green, clippy `-D warnings` clean,
-  fmt clean, audited. Dev-only key override env var documented in memory.
+  fmt clean, audited. CI core jobs green on Linux AND Windows (note:
+  rustup auto-installs a minimal toolchain in CI, so `rustup component add
+  rustfmt clippy` runs explicitly first). Dev-only key override env var
+  documented in memory.
 - **Next: M1.4 (Blink host skeleton)** — CEF host, sub-steps with stop-and-report.
 - **No browser exists yet.** First runnable skeleton: M1.4 / M1.5.
 

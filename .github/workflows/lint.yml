@@ -5,6 +5,9 @@
 # Job 2 "ui": the shared UI — typecheck, build, component tests, and the
 # automated zero-external-requests check (Design.md 4.1). No engine builds:
 # those come with the host milestones (M1.4, M1.5) and run separately.
+# Job 3 "core": the Rust core — formatting, clippy, tests and a security
+# audit on Linux, plus tests on Windows. The SQLCipher/OpenSSL build needs
+# Perl, which both runners ship.
 
 name: lint
 
@@ -61,3 +64,37 @@ jobs:
         run: npm test
       - name: Zero external requests in the built output (Design.md 4.1)
         run: npm run check:no-external
+
+  core:
+    name: Rust core — lint, tests, audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop/core
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # rustup is preinstalled and reads rust-toolchain.toml for the
+      # pinned toolchain, so no setup action is needed here.
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Lint with all warnings as errors
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Run tests
+        run: cargo test --workspace
+      - name: Security audit of dependencies
+        run: |
+          cargo install cargo-audit --locked || cargo audit --version
+          cargo audit
+
+  core-windows:
+    name: Rust core — Windows tests
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop/core
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Run tests
+        run: cargo test --workspace

@@ -1,16 +1,17 @@
 # Project state
 
-- **Phase 1, M1.1 (repo and tooling): DONE 2026-10-05** — structure, checks,
-  lint CI, logo saved, toolchain complete, pushed, CI green.
-- **Phase 1, M1.2 (shared UI foundation): DONE 2026-10-05** — Vite + React +
-  Tailwind in `desktop/ui/`, tokens.css generated from Design.md §3, fonts
-  self-hosted (subset Material Symbols), Bridge v0 types + MockHost, 8-piece
-  component kit, shell (72px two-row chrome, 56px rail), New Tab skeleton
-  with owner logo, strict CSP, 53 tests green, build self-contained,
-  verified visually in a real browser.
-- **Next: M1.3 (core skeleton)** — Rust workspace, JSON-RPC over stdio,
-  SQLCipher, keystore, URL-rejecting logger.
-- **No browser exists yet.** First runnable skeleton: M1.4 (Blink) / M1.5 (Gecko).
+- **Phase 1, M1.1 (repo and tooling): DONE 2026-10-05.**
+- **Phase 1, M1.2 (shared UI foundation): DONE 2026-10-05** — React + Zustand UI,
+  tokens, self-hosted fonts, Bridge v0 + MockHost, shell, 53 tests, CI green.
+- **Phase 1, M1.3 (core skeleton): DONE 2026-10-05** — Rust workspace
+  `desktop/core/` (crates `xenon-core` + `xenon-core-capi` stub): JSON-RPC 2.0
+  over stdio (1 MB line limit, chunking helper, `hello` handshake), SQLCipher
+  DB + migrations (`settings`, `site_prefs`), keystore (Windows Credential
+  Manager / Linux Secret Service) with Argon2id master-password wrap,
+  PRIV-05 rejecting logger. 46 tests green, clippy `-D warnings` clean,
+  fmt clean, audited. Dev-only key override env var documented in memory.
+- **Next: M1.4 (Blink host skeleton)** — CEF host, sub-steps with stop-and-report.
+- **No browser exists yet.** First runnable skeleton: M1.4 / M1.5.
 
 # Decisions
 
@@ -51,23 +52,25 @@
 
 # How to build and test
 
-From `desktop/ui/` (Node 24, npm):
+UI — from `desktop/ui/` (Node 24, npm):
 ```bash
-npm ci                        # exact deps from lock file
-npm run dev                   # dev harness at http://localhost:5173 (MockHost)
-npm run build                 # tokens + tsc --noEmit + vite build -> dist/
-npm test                      # vitest, 53 tests
-npm run check:no-external     # scans dist/ for external request sources
+npm ci && npm run build && npm test && npm run check:no-external
+npm run dev        # dev harness at http://localhost:5173 (MockHost)
 ```
-From repo root:
+Core — from `desktop/core/` (Rust; first build compiles SQLCipher+OpenSSL):
 ```bash
-python desktop/tools/check-secrets.py         # pre-commit checks:
-python desktop/tools/check-no-url-logging.py  #   run by .githooks/pre-commit
-python desktop/tools/check-file-length.py     #   and CI
-python -m ruff check desktop/tools
-python desktop/tools/fetch-fonts.py           # only when fonts/icons change
+cargo fmt --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test --workspace        # 46 tests; OPENSSL_SRC_PERL is in the user env
+cargo audit                   # dev-only tool, installed via cargo install
 ```
-Nothing Rust exists yet. Engine builds run in GitHub Actions only (M1.4+).
+The `xenon-core` binary reads JSON-RPC lines from stdin. Dev/test override:
+`XENON_CORE_DB_KEY=<64 hex chars>` (never used by the shipped browser) and
+`XENON_CORE_DB_PATH=<file>`; without them it uses the OS keystore and
+creates `xenon.db` in the current directory.
+Repo checks from root: `python desktop/tools/check-secrets.py`,
+`check-no-url-logging.py`, `check-file-length.py`, `ruff check desktop/tools`.
+Nothing engine-related builds locally; engine builds run in CI (M1.4+).
 
 # Environment
 
@@ -75,10 +78,13 @@ Owner's machine (local dev only; engine builds happen in CI):
 - Windows 11 (build 26200). Git Bash for the assistant; owner often uses
   PowerShell: give commands one per line, no `&&`. `python` works, `python3` alias absent.
 - git 2.54.0.windows.1; Node v24.18.0 / npm 11.16.0; Python 3.12.10 / pip 25.0.1.
-- Rust 1.99.0 stable-x86_64-pc-windows-msvc — links correctly (verified).
-- VS Build Tools 2026 (18.10.12224.181): MSVC 14.51.36231, Windows SDK, cmake
-  and ninja bundled under `C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\` (not on PATH).
-- ruff 0.16.10, fonttools 4.66.1 + brotli (pip). No `gh` CLI.
+- Rust 1.99.0 stable (pinned in `desktop/core/rust-toolchain.toml`), MSVC links fine.
+- VS Build Tools 2026 (18.10.12224.181): MSVC 14.51.36231, Windows SDK.
+- **Perl:** Git's bundled perl LACKS Locale::Maketext::Simple, so vendored
+  OpenSSL builds fail. Portable Strawberry Perl 5.42.3 extracted to
+  `C:\Users\ACER\tools\strawberry-perl\` (user env `OPENSSL_SRC_PERL` set via
+  setx, no admin needed). First core build needs it: `cargo build` in a NEW
+  terminal, or prefix `OPENSSL_SRC_PERL="C:\Users\ACER\tools\strawberry-perl\perl\bin\perl.exe"`.
 - Repo: https://github.com/Sasuke-Uchhiha28/Xenon-Browser (public), branch
   `main`; milestone branches `phase-1/mX.Y-name` merged to main when done.
 
@@ -90,9 +96,17 @@ UI (`desktop/ui/package.json`, all pinned exact, lock file committed):
   @tailwindcss/vite 4.3.3, typescript 7.0.2 (Apache-2.0), vitest 5.0.3,
   jsdom 30.1.2, @testing-library/react 16.3.3, jest-dom 7.0.1,
   user-event 14.6.7 — MIT except typescript
-Python dev tools: ruff 0.16.10 (MIT, in requirements-dev.txt); fonttools
-4.66.1 + brotli (MIT, local only, for fetch-fonts.py); pyyaml (local only).
-Fonts: SIL OFL 1.1 (x3) + Apache-2.0 (Material Symbols) — see decision above.
+Core (`desktop/core/xenon-core/Cargo.toml`, Cargo.lock committed):
+- serde 1.0.229, serde_json 1.0.151, thiserror 2.0.21, zeroize 1.9.0,
+  getrandom 0.4.3, base64 0.23.1 — MIT/Apache-2.0
+- rusqlite 0.40.2 (MIT; feature `bundled-sqlcipher-vendored-openssl` —
+  SQLCipher + OpenSSL built from source, needs Perl)
+- keyring 4.2.0 (MIT/Apache; features `windows-native-keyring-store`,
+  `zbus-secret-service-keyring-store` — v4 feature names differ from v3)
+- argon2 0.6.0, aes-gcm 0.11.1 (MIT/Apache; AES-256-GCM + Argon2id wrap)
+Python dev tools: ruff 0.16.10 (MIT); fonttools 4.66.1 + brotli (MIT);
+pyyaml (local only). Fonts: SIL OFL 1.1 (x3) + Apache-2.0 (Material Symbols)
+— OFL ratification still pending with owner.
 
 # Known issues and blockers
 
@@ -110,31 +124,34 @@ Fonts: SIL OFL 1.1 (x3) + Apache-2.0 (Material Symbols) — see decision above.
 
 # Next steps
 
-1. Start M1.3 (core skeleton) in a fresh session: Rust workspace `core` +
-   `core-capi`, JSON-RPC over stdio (versioning, size limits, chunking),
-   SQLCipher + migrations + `settings`/`site_prefs`, keystore (Windows +
-   Linux), optional master-password wrap, URL-rejecting logger.
-   Branch: `phase-1/m1.3-core-skeleton`.
-2. Before M1.3: owner ratifies OFL fonts (or picks alternatives).
-3. M1.4 will need the Bridge conformance test suite (extend from M1.2 types).
+1. Start M1.4 (Blink host skeleton) in a fresh session — it has sub-steps
+   that each stop and report: (1) unmodified CEF sample app building in CI
+   on Windows + Linux, (2) Xenon window with UI view + one tab, (3) core
+   child process + Bridge v0 + conformance tests, (4) spikes S2 (popover)
+   and S8 (extensions). Read Architecture.md 2, 4, 5, 7 (Blink column).
+2. Owner: ratify OFL font license (still pending).
+3. M1.4 will need Bridge conformance tests shared across hosts (build on
+   `desktop/ui/src/bridge/types.ts`).
 
 # File map
 
 - `desktop/Rules.md`, `PRD.md`, `Architecture.md`, `Design.md`, `Phases.md` — governing docs (read per milestone)
 - `desktop/memory.md` — this file; the only cross-session state
-- `desktop/ui/tokens.json` → `scripts/build-tokens.mjs` → `src/styles/tokens.css` — token pipeline (generated file, do not hand-edit)
-- `desktop/ui/src/styles/base.css` — Tailwind @theme mapping, focus ring, Reduced-effects overrides
-- `desktop/ui/src/styles/fonts.css` — @font-face for the 6 self-hosted fonts
-- `desktop/ui/src/bridge/types.ts` — Bridge v0 contract (window, tabs, nav, events); change together with mock-host + hosts + conformance tests (ENG-02)
-- `desktop/ui/src/bridge/mock-host.ts` — dev Bridge (in-memory tabs + history, fetches nothing)
-- `desktop/ui/src/bridge/index.ts` — host-injected bridge or dynamic MockHost import
-- `desktop/ui/src/state/ui-store.ts` — Zustand store mirroring the Bridge
-- `desktop/ui/src/components/` — Button, Switch, Card, Tab, Omnibox, SidebarItem, Popover, MetricCard, Icon (+ `icon-glyphs.ts` generated)
-- `desktop/ui/src/shell/` — TabStrip, Toolbar, Sidebar, NewTabPage, Shell
-- `desktop/ui/src/lib/` — normalize-url, search-engines, cn
-- `desktop/ui/public/fonts/` — committed woff2 + licenses (from fetch-fonts.py)
-- `desktop/tools/` — check-secrets.py, check-no-url-logging.py, check-file-length.py, fetch-fonts.py, fonts-manifest.json, requirements-dev.txt
-- `.github/workflows/lint.yml` — lint job + ui job (typecheck, build, tests, no-external)
-- `.githooks/pre-commit` — runs the three checks; `.gitignore`, `.gitattributes`, `LICENSE` (MPL-2.0), `README.md`, `pyproject.toml`
+- `desktop/core/Cargo.toml` + `rust-toolchain.toml` — Rust workspace (crates: xenon-core, xenon-core-capi)
+- `desktop/core/xenon-core/src/lib.rs` — error types + hex helpers
+- `desktop/core/xenon-core/src/rpc/` — JSON-RPC service (`mod.rs`) + line framing with 1 MB limit (`framing.rs`)
+- `desktop/core/xenon-core/src/chunked.rs` — >1 MB message chunking helper (base64 parts)
+- `desktop/core/xenon-core/src/db/` — SQLCipher open + DbKey (`mod.rs`), migrations (`migrations.rs`)
+- `desktop/core/xenon-core/src/settings.rs` — settings + site_prefs (prepared statements only)
+- `desktop/core/xenon-core/src/keystore/` — OS keystore (`mod.rs`), Argon2id wrap (`wrap.rs`)
+- `desktop/core/xenon-core/src/logging.rs` — PRIV-05 logger (rejects URLs, banned keys, key-shaped values)
+- `desktop/core/xenon-core/src/bin/xenon-core.rs` — stdio RPC process; `tests/rpc_stdio.rs` — real-binary integration tests
+- `desktop/core/xenon-core-capi/src/lib.rs` — C ABI stub (abi/protocol version)
+- `desktop/ui/tokens.json` → `scripts/build-tokens.mjs` → `src/styles/tokens.css` — token pipeline
+- `desktop/ui/src/bridge/` — types.ts (Bridge v0 contract), mock-host.ts, index.ts
+- `desktop/ui/src/components/`, `src/shell/`, `src/lib/`, `src/state/ui-store.ts` — component kit, shell, helpers, store
+- `desktop/ui/public/fonts/` — committed woff2 + licenses (from `desktop/tools/fetch-fonts.py`)
+- `desktop/tools/` — check-secrets.py, check-no-url-logging.py, check-file-length.py, fetch-fonts.py, fonts-manifest.json
+- `.github/workflows/lint.yml` — lint, ui, core (Linux) and core-windows jobs
+- `.githooks/pre-commit`, `.gitignore`, `.gitattributes`, `LICENSE` (MPL-2.0), `README.md`, `pyproject.toml`
 - `desktop/resources/branding/logo-original.png` — THE logo, never modify
-- `desktop/gecko/ blink/ core/ launcher/ packaging/` — empty (.gitkeep) until M1.3+

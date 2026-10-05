@@ -1,0 +1,11 @@
+[workspace]
+resolver = "2"
+members = ["xenon-core", "xenon-core-capi"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MPL-2.0"
+
+[workspace.lints.rust]
+# Kept in sync with CI (cargo clippy -D warnings, cargo fmt).

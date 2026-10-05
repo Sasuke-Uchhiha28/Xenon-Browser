@@ -1,0 +1,14 @@
+[package]
+name = "xenon-core-capi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "xenon_core_capi"
+crate-type = ["cdylib", "staticlib"]
+path = "src/lib.rs"
+
+[dependencies]
+# The C ABI exposes the core library to the Blink host (Architecture.md 6.3).
+xenon-core = { path = "../xenon-core" }

@@ -1,0 +1,28 @@
+[package]
+name = "xenon-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "xenon_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "xenon-core"
+path = "src/bin/xenon-core.rs"
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = { version = "1.0.151", features = ["preserve_order"] }
+# SQLCipher with a vendored OpenSSL crypto provider: no system OpenSSL
+# needed on Windows or CI Linux (Perl, present in Git for Windows and on
+# ubuntu runners, is the only build prerequisite).
+rusqlite = { version = "0.40.2", features = ["bundled-sqlcipher-vendored-openssl"] }
+keyring = { version = "4.2.0", features = ["windows-native-keyring-store", "zbus-secret-service-keyring-store"] }
+argon2 = "0.6.0"
+aes-gcm = "0.11.1"
+zeroize = "1.9.0"
+thiserror = "2.0.21"
+getrandom = "0.4.3"
+base64 = "0.23.1"

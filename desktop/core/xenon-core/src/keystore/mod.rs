@@ -119,12 +119,14 @@ mod tests {
         }
         let store = OsKeyStore;
         let account = format!("core/test-{}", std::process::id());
-        let result = store.set(&account, "test-value");
-        if let Err(err) = result {
-            if !forced {
-                eprintln!("skipping: no usable OS keystore here ({err})");
-                return;
+        // Propagate the set failure itself: a later get() panic would
+        // hide the real cause (locked keyring, missing daemon, ...).
+        if let Err(err) = store.set(&account, "test-value") {
+            if forced {
+                panic!("forced keystore test: set failed: {err}");
             }
+            eprintln!("skipping: no usable OS keystore here ({err})");
+            return;
         }
         assert_eq!(store.get(&account).expect("get"), Some("test-value".into()));
         store.delete(&account).expect("delete");

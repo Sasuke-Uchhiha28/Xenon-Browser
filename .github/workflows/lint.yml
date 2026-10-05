@@ -89,19 +89,18 @@ jobs:
       - name: Start a headless Secret Service and run tests
         run: |
           sudo apt-get install -y gnome-keyring
-          dbus-run-session -- bash /dev/stdin <<'SCRIPT'
-            eval "$(gnome-keyring-daemon --start --components=secrets 2>/dev/null)" || { echo "::error::gnome-keyring daemon did not start"; exit 1; }
-            echo "ci-ci-ci-ci" | gnome-keyring-daemon --unlock >/dev/null 2>&1 || { echo "::error::keyring unlock failed"; exit 1; }
+          dbus-run-session -- bash -c '
+            echo "" | gnome-keyring-daemon --unlock >/dev/null 2>&1 || { echo "::error::gnome-keyring unlock failed"; exit 1; }
             export XENON_FORCE_KEYSTORE_TEST=1
             set -o pipefail
             cargo test --workspace 2>&1 | tee /tmp/core-test.log
             status=$?
             if [ $status -ne 0 ]; then
-              echo "::error::cargo test failed with exit code $status; details in the annotations below"
-              tail -45 /tmp/core-test.log | while IFS= read -r line; do echo "::error::${line:0:290}"; done
+              echo "::error::cargo test failed with exit code $status"
+              grep -B2 -A5 "panicked at" /tmp/core-test.log | head -8 | while IFS= read -r line; do echo "::error::${line:0:280}"; done
               exit $status
             fi
-          SCRIPT
+          '
       - name: Security audit of dependencies
         run: |
           cargo install cargo-audit --locked

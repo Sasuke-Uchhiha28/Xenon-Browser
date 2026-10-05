@@ -84,12 +84,13 @@ jobs:
       - name: Lint with all warnings as errors
         run: cargo clippy --workspace --all-targets -- -D warnings
       # The keystore tests talk to a real Secret Service. A headless
-      # gnome-keyring inside a private D-Bus session provides one; the
-      # empty unlock password creates an unlocked default keyring.
+      # gnome-keyring inside a private D-Bus session provides one: start
+      # the daemon first, then unlock (and create) the default keyring
+      # with an empty password.
       - name: Start a headless Secret Service and run tests
         run: |
           sudo apt-get install -y gnome-keyring
-          dbus-run-session -- bash -c 'eval "$(echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null)" && XENON_FORCE_KEYSTORE_TEST=1 cargo test --workspace'
+          dbus-run-session -- bash -c 'eval "$(gnome-keyring-daemon --start --components=secrets 2>/dev/null)" && eval "$(echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null)" && XENON_FORCE_KEYSTORE_TEST=1 cargo test --workspace'
       - name: Security audit of dependencies
         run: |
           cargo install cargo-audit --locked

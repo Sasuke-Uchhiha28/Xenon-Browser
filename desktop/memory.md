@@ -1,10 +1,12 @@
 # Project state
 
-- **Phase 1, Milestone M1.1 (repo and tooling): in progress.** All local work done
-  2026-10-05: folder structure, root files (LICENSE, README, .gitignore,
-  .gitattributes), pre-commit checks, lint CI workflow, logo saved, toolchain
-  checked. Remaining: owner sets git identity (commits), owner creates the
-  GitHub repo and pushes (so the lint workflow actually runs green).
+- **Phase 1, Milestone M1.1 (repo and tooling): DONE and accepted 2026-10-05.**
+  Folder structure, root files, pre-commit checks, lint CI workflow, logo
+  saved, toolchain complete, committed on `main` and pushed to the public
+  repo https://github.com/Sasuke-Uchhiha28/Xenon-Browser — the `lint`
+  workflow ran green on GitHub (verified via API).
+- **Next: M1.2 (shared UI foundation)** — start in a fresh session with the
+  standard start prompt.
 - **No browser exists yet.** First runnable skeleton: M1.4 (Blink) / M1.5 (Gecko).
 
 # Decisions
@@ -27,8 +29,10 @@
 - 2026-10-05: `.gitattributes` forces LF for text files (bash pre-commit hook
   and Linux CI break with CRLF); .bat/.ps1 keep CRLF.
 - 2026-10-05: NO commits made yet: git had no author identity and the repo will
-  be public, so no identity was invented. Owner sets identity, then commits
-  (commands in Known issues). The three check scripts scan `git ls-files`
+  be public, so no identity was invented. Owner set their own identity,
+  committed on `main` (first-commit exception; milestone branches start at
+  M1.2) and pushed to https://github.com/Sasuke-Uchhiha28/Xenon-Browser.
+  The three check scripts scan `git ls-files`
   (tracked) when `.git` exists, and walk the tree otherwise.
 
 # How to build and test
@@ -57,16 +61,18 @@ First real builds arrive with M1.2 (npm/Vite in `desktop/ui/`) and M1.3
 
 Owner's machine (local dev only; engine builds happen in CI):
 - Windows 11 (build 26200), shell: Git Bash. `python` works, `python3` alias
-  does not exist (use `python` in commands and docs).
+  does not exist (use `python` in commands and docs). Owner often works in
+  PowerShell: give commands one per line, no `&&` (PowerShell 5 rejects it).
 - git 2.54.0.windows.1 — installed, no user.name/user.email set yet.
 - Node v24.18.0, npm 11.16.0 — installed.
-- Rust 1.99.0 stable-x86_64-pc-windows-msvc — installed but CANNOT LINK
-  (no link.exe; verified with a throwaway crate). Needs VS Build Tools.
+- Rust 1.99.0 stable-x86_64-pc-windows-msvc — WORKS (link verified 2026-10-05
+  with a throwaway crate).
+- Visual Studio Build Tools 2026 (v18.10.12224.181) with "Desktop development
+  with C++": MSVC 14.51.36231, Windows SDK, cmake.exe and ninja.exe (bundled
+  under `C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\`,
+  not on PATH). Installed 2026-10-05; unblocks M1.3/M1.4.
 - Python 3.12.10, pip 25.0.1 — installed (meets the 3.11+ floor).
-- Visual Studio 2022 folder exists but is EMPTY: no MSVC compiler, no Windows
-  SDK, no cmake, no ninja.
-- ruff 0.16.10 installed (pip).
-- No `gh` CLI installed.
+- ruff 0.16.10 installed (pip). No `gh` CLI installed.
 
 # Dependencies added
 
@@ -77,34 +83,16 @@ Owner's machine (local dev only; engine builds happen in CI):
 
 # Known issues and blockers
 
-1. **C++ build tools missing (blocks M1.3 and M1.4 local work).** Cargo fails
-   with "`link.exe` returned an unexpected error". Owner fix: install "Build
-   Tools for Visual Studio 2022" from visualstudio.microsoft.com with the
-   "Desktop development with C++" workload (includes MSVC compiler, Windows
-   SDK, cmake and ninja; roughly 7 GB). Then record the versions here.
-2. **No commits yet** — git identity missing. Owner runs:
-   `git config --global user.name "Your Name"` and
-   `git config --global user.email "you@example.com"` (their real data; the
-   repo will be public). Then `git commit -m "chore(repo): M1.1 repo and tooling"` —
-   files are already staged. If they prefer their name on the history as a
-   single clean commit: `git reset --soft $(git rev-list --max-parents=0 HEAD)` after
-   the first commit is unnecessary — simply commit; author identity is taken
-   at commit time.
-3. **CI has not run yet** — there is no GitHub remote. Owner creates an empty
-   public repo on github.com, then:
-   `git remote add origin <repo-url>`, `git push -u origin main`.
-   The lint workflow should run green; that completes M1.1 acceptance.
+None. (C++ tools resolved 2026-10-05; M1.1 committed and pushed; CI green.)
 
 # Next steps
 
-1. Owner: set git identity (commands above), commit; create GitHub repo and
-   push; confirm the lint workflow is green. Also install VS Build Tools.
-2. Next milestone M1.2 (shared UI foundation): read Design.md sections
-   3, 4.1, 4.2, 4.7, 4.8, 8, 9; Vite + TypeScript + Tailwind; tokens.css;
-   component kit; bridge/types.ts v0 + MockHost; shell layout.
-3. Record installed VS Build Tools / MSVC version in this file once installed.
-4. M1.2 choice to prepare: small state store library (Rules.md 4.2) —
-   propose candidates with licenses during M1.2.
+1. Start M1.2 (shared UI foundation) in a fresh session: read Design.md
+   sections 3, 4.1, 4.2, 4.7, 4.8, 8, 9; Vite + TypeScript + Tailwind;
+   tokens.css; component kit; bridge/types.ts v0 + MockHost; shell layout.
+2. Branch name for M1.2: `phase-1/m1.2-shared-ui-foundation` (branch off main).
+3. During M1.2: propose the small state store library (Rules.md 4.2) with
+   license checks before adding it.
 
 # File map
 

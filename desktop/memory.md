@@ -49,6 +49,21 @@
   to core settings in M1.3 (ENG-04 — no UI-side storage).
 - 2026-10-05: SearXNG search URL is a placeholder (`searx.be`) — owner should
   pick the instance in M2.5. Search engines list per Design.md 4.5, DDG default.
+- 2026-10-05: **OFL font license ratified by owner delegation.** The owner
+  was told the PRD-mandated fonts are SIL OFL 1.1 (not in Rules.md 8.1's
+  list) and answered "if you think these are really important then work on
+  them"; the recommendation was to allow OFL, so it is treated as allowed.
+  Rules.md 8.1 itself was NOT edited — say the word and it will be.
+- 2026-10-05: **Master-password plumbing (post-M1.3 hardening):** the core
+  binary resolves the DB key through `keystore::resolve` (raw hex default,
+  Argon2id-wrapped when a master password is set). Dev/test env plumbing:
+  `XENON_CORE_SETUP_MASTER_PASSWORD` (migrate to wrapped), `XENON_CORE_MASTER_PASSWORD`
+  (unlock), `XENON_CORE_KEYSTORE_ACCOUNT` (tests must set this so the real
+  `core/db-key` entry is never touched). UI password prompting comes later.
+- 2026-10-05: **Linux keystore runtime-verified in CI:** the core job starts
+  a headless gnome-keyring inside `dbus-run-session` and sets
+  `XENON_FORCE_KEYSTORE_TEST=1`; without that variable the keystore test
+  skips on Linux (no daemon locally).
 - 2026-10-05: MockHost is dynamically imported and lands in its own chunk
   (`dist/assets/mock-host-*.js`); release packaging (M1.6) must exclude that
   chunk. Recorded as a known issue until then.

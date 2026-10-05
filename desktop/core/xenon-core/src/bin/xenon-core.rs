@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 
 use xenon_core::db::{Database, DbKey};
+use xenon_core::keystore::resolve;
 use xenon_core::keystore::{KeyStore, OsKeyStore, DB_KEY_ACCOUNT};
 use xenon_core::logging::{Field, Level, Logger};
 use xenon_core::rpc::framing::FrameReader;
@@ -33,7 +34,7 @@ fn main() -> ExitCode {
 
 fn run(logger: &Logger) -> Result<()> {
     let db_path = db_path()?;
-    let key = db_key()?;
+    let key = db_key(logger)?;
     let mut db = Database::open(&db_path, &key)?;
     let applied = db.migrate()?;
     logger.event(
@@ -98,17 +99,77 @@ fn db_path() -> Result<PathBuf> {
 
 /// The SQLCipher key: from `XENON_CORE_DB_KEY` (hex; dev and test
 /// harnesses only — the shipped browser never passes keys through the
-/// environment), otherwise fetched from the OS keystore, generated and
-/// stored on first run.
-fn db_key() -> Result<DbKey> {
-    if let Ok(hex) = std::env::var("XENON_CORE_DB_KEY") {
-        return DbKey::from_hex(&hex);
+/// environment), otherwise resolved through the OS keystore: generated on
+/// first run, optionally wrapped under a master password.
+///
+/// Master-password environment variables (dev/test plumbing until hosts
+/// prompt through the Bridge in a later milestone):
+/// - `XENON_CORE_SETUP_MASTER_PASSWORD`: one-shot migration of a raw
+///   stored key to wrapped storage.
+/// - `XENON_CORE_MASTER_PASSWORD`: unlocks a wrapped key.
+/// - `XENON_CORE_KEYSTORE_ACCOUNT`: keystore account override so tests
+///   never touch the real profile entry.
+fn db_key(logger: &Logger) -> Result<DbKey> {
+    let account =
+        std::env::var("XENON_CORE_KEYSTORE_ACCOUNT").unwrap_or_else(|_| DB_KEY_ACCOUNT.to_string());
+    let store = AccountStore {
+        inner: OsKeyStore,
+        account: &account,
+    };
+    let explicit = match std::env::var("XENON_CORE_DB_KEY") {
+        Ok(hex) => Some(DbKey::from_hex(&hex)?),
+        Err(_) => None,
+    };
+    if let Ok(setup) = std::env::var("XENON_CORE_SETUP_MASTER_PASSWORD") {
+        // One-shot migration to wrapped storage; the explicit dev key is
+        // wrapped when given, otherwise the stored (raw) key is wrapped.
+        let key = match explicit {
+            Some(key) => {
+                resolve::reset_and_wrap(&store, &key, &setup)?;
+                key
+            }
+            None => {
+                let key = resolve::ensure_db_key(&store, None)?;
+                resolve::convert_to_wrapped(&store, &setup)?;
+                key
+            }
+        };
+        logger.event(Level::Info, "core.keywrap.enabled", &[]);
+        return Ok(key);
     }
-    let store = OsKeyStore;
-    if let Some(hex) = store.get(DB_KEY_ACCOUNT)? {
-        return DbKey::from_hex(&hex);
+    match explicit {
+        Some(key) => Ok(key),
+        None => {
+            let master = std::env::var("XENON_CORE_MASTER_PASSWORD").ok();
+            resolve::ensure_db_key(&store, master.as_deref()).map_err(|err| match err {
+                CoreError::Keystore(message) if message.contains("master password required") => {
+                    CoreError::Keystore(
+                        "the database key is wrapped; set XENON_CORE_MASTER_PASSWORD \
+                         (the UI will prompt in a later milestone)"
+                            .into(),
+                    )
+                }
+                other => other,
+            })
+        }
     }
-    let key = DbKey::generate()?;
-    store.set(DB_KEY_ACCOUNT, &key.as_hex())?;
-    Ok(key)
+}
+
+/// A keystore view pinned to one account name, so callers cannot mix up
+/// entries and tests can avoid the real profile entry.
+struct AccountStore<'a> {
+    inner: OsKeyStore,
+    account: &'a str,
+}
+
+impl KeyStore for AccountStore<'_> {
+    fn get(&self, _account: &str) -> Result<Option<String>> {
+        self.inner.get(self.account)
+    }
+    fn set(&self, _account: &str, value: &str) -> Result<()> {
+        self.inner.set(self.account, value)
+    }
+    fn delete(&self, _account: &str) -> Result<()> {
+        self.inner.delete(self.account)
+    }
 }

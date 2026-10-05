@@ -16,15 +16,28 @@ struct CoreProc {
 
 impl CoreProc {
     fn start(db_path: &std::path::Path, key_hex: &str) -> CoreProc {
+        Self::start_with(db_path, "core/db-key", |command| {
+            command.env("XENON_CORE_DB_KEY", key_hex);
+        })
+    }
+
+    /// Spawn with full control over the environment: `configure` adds the
+    /// test's variables on top of the standard pipes and db path.
+    fn start_with(
+        db_path: &std::path::Path,
+        keystore_account: &str,
+        configure: impl FnOnce(&mut Command),
+    ) -> CoreProc {
         let exe = env!("CARGO_BIN_EXE_xenon-core");
-        let mut child = Command::new(exe)
+        let mut command = Command::new(exe);
+        command
             .env("XENON_CORE_DB_PATH", db_path)
-            .env("XENON_CORE_DB_KEY", key_hex)
+            .env("XENON_CORE_KEYSTORE_ACCOUNT", keystore_account)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::null())
-            .spawn()
-            .expect("spawn xenon-core");
+            .stderr(Stdio::null());
+        configure(&mut command);
+        let mut child = command.spawn().expect("spawn xenon-core");
         let stdin = child.stdin.take().expect("take stdin");
         let stdout = BufReader::new(child.stdout.take().expect("take stdout"));
         CoreProc {
@@ -136,5 +149,78 @@ fn core_exits_cleanly_when_stdin_closes() {
         status.success(),
         "core must exit 0 when stdin closes, got {status:?}"
     );
+    let _ = std::fs::remove_file(&db_path);
+}
+
+#[test]
+fn master_password_wrap_round_trip_through_the_real_binary() {
+    // Requires a usable OS keystore: Windows everywhere, Linux only when
+    // CI started the headless gnome-keyring (XENON_FORCE_KEYSTORE_TEST=1).
+    let forced = std::env::var("XENON_FORCE_KEYSTORE_TEST").is_ok();
+    if !cfg!(windows) && !forced {
+        return;
+    }
+    let unique = std::process::id();
+    let mut db_path = std::env::temp_dir();
+    db_path.push(format!("xenon-stdio-wrap-{unique}.db"));
+    let _ = std::fs::remove_file(&db_path);
+    // A per-test keystore account, so the real "core/db-key" profile
+    // entry is never touched; it is removed again at the end.
+    let account = format!("core/test-wrap-{unique}");
+
+    // Run 1: the key is provided as a dev key and migrated to wrapped
+    // storage under the master password.
+    {
+        let mut core = CoreProc::start_with(&db_path, &account, |command| {
+            command
+                .env("XENON_CORE_DB_KEY", "ab".repeat(32))
+                .env("XENON_CORE_SETUP_MASTER_PASSWORD", "wrap test password");
+        });
+        let hello = core.request(r#"{"jsonrpc":"2.0","id":1,"method":"hello"}"#);
+        assert!(
+            hello.contains(r#""protocolVersion":1"#),
+            "run 1 was {hello}"
+        );
+        core.request(
+            r#"{"jsonrpc":"2.0","id":2,"method":"settings.set","params":{"key":"marker","value":"wrapped"}}"#,
+        );
+    } // stdin closes: core exits.
+
+    // Run 2: no dev key; the wrapped entry is unwrapped with the password
+    // and must open the very same database file.
+    {
+        let mut core = CoreProc::start_with(&db_path, &account, |command| {
+            command.env("XENON_CORE_MASTER_PASSWORD", "wrap test password");
+        });
+        let hello = core.request(r#"{"jsonrpc":"2.0","id":1,"method":"hello"}"#);
+        assert!(
+            hello.contains(r#""protocolVersion":1"#),
+            "run 2 was {hello}"
+        );
+        let get = core.request(
+            r#"{"jsonrpc":"2.0","id":2,"method":"settings.get","params":{"key":"marker"}}"#,
+        );
+        assert!(
+            get.contains(r#""value":"wrapped""#),
+            "the unwrapped key must open the same database, got {get}"
+        );
+    }
+
+    // Run 3: without the correct password the wrapped entry is refused
+    // and the core exits with a failure code before serving anything.
+    {
+        let mut core = CoreProc::start_with(&db_path, &account, |command| {
+            command.env("XENON_CORE_MASTER_PASSWORD", "wrong password");
+        });
+        let status = core.child.wait().expect("wait for refusal");
+        assert!(
+            !status.success(),
+            "a wrong password must be a failure exit, got {status:?}"
+        );
+    }
+
+    // Remove the per-test keystore entry.
+    use xenon_core::keystore::{KeyStore, OsKeyStore};
+    OsKeyStore.delete(&account).expect("delete test entry");
     let _ = std::fs::remove_file(&db_path);
 }

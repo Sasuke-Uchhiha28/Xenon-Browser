@@ -12,6 +12,14 @@ use zeroize::Zeroizing;
 #[derive(Clone)]
 pub struct DbKey(Zeroizing<Vec<u8>>);
 
+impl std::fmt::Debug for DbKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Redacted on purpose: key material must never reach logs or
+        // panic messages (PRIV-05).
+        f.debug_struct("DbKey").finish_non_exhaustive()
+    }
+}
+
 impl DbKey {
     /// Generate a fresh random 256-bit key.
     pub fn generate() -> Result<DbKey> {

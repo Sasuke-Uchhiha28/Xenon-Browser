@@ -96,6 +96,12 @@ Fonts: SIL OFL 1.1 (x3) + Apache-2.0 (Material Symbols) — see decision above.
 
 # Known issues and blockers
 
+- **Dev server 504 "Outdated Optimize Dep"**: if a Vite dev server survives
+  its parent shell and restarts mid-session (e.g. git touching files), the
+  browser's cached module graph can point at dead dep hashes and the page
+  mounts nothing. Fix: kill the stray node process, delete
+  `desktop/ui/node_modules/.vite`, `npm run dev` again. Dev-only; production
+  builds are unaffected. Diagnosed and fixed 2026-10-05.
 - **OFL font license needs owner ratification** (decision above).
 - MockHost chunk must be excluded from release packaging in M1.6.
 - SearXNG instance URL placeholder; final list + settings UI in M2.5.

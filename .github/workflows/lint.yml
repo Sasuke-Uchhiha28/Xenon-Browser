@@ -90,7 +90,23 @@ jobs:
       - name: Start a headless Secret Service and run tests
         run: |
           sudo apt-get install -y gnome-keyring
-          dbus-run-session -- bash -c 'eval "$(gnome-keyring-daemon --start --components=secrets 2>/dev/null)" && eval "$(echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null)" && XENON_FORCE_KEYSTORE_TEST=1 cargo test --workspace'
+          dbus-run-session -- bash -c '
+            eval "$(gnome-keyring-daemon --start --components=secrets 2>/dev/null)" || exit 1
+            eval "$(echo -n "" | gnome-keyring-daemon --unlock 2>/dev/null)"
+            export XENON_FORCE_KEYSTORE_TEST=1
+            set -o pipefail
+            cargo test --workspace 2>&1 | tee /tmp/core-test.log
+          '
+      # The keystore work is being verified across platforms; when the
+      # Linux tests fail, the log lands as a downloadable artifact so the
+      # failure can be read without repository admin rights.
+      - name: Save the test log when this step failed
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: core-test-log
+          path: /tmp/core-test.log
+          if-no-files-found: ignore
       - name: Security audit of dependencies
         run: |
           cargo install cargo-audit --locked

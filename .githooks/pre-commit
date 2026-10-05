@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Xenon Browser pre-commit hook (M1.1).
+#
+# Runs the three repository checks before every commit. The scripts are
+# stdlib-only Python, so this works on a fresh clone with no installs.
+# CI (.github/workflows/lint.yml) runs the same scripts, so a commit
+# made with --no-verify is still caught there.
+#
+# Enable after cloning:  git config core.hooksPath .githooks
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+echo "[pre-commit] secrets scan"
+python desktop/tools/check-secrets.py
+echo "[pre-commit] no URL logging"
+python desktop/tools/check-no-url-logging.py
+echo "[pre-commit] file length"
+python desktop/tools/check-file-length.py

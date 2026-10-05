@@ -1,0 +1,40 @@
+# Xenon Browser — desktop repository.
+# Kept intentionally short; engine-specific entries are added in the
+# milestones that fetch engines (ENG-05: engine sources are never committed).
+
+# Build outputs and dependency trees
+node_modules/
+dist/
+build/
+out/
+target/
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets and local environment (PRIV-09: secrets are never committed)
+.env
+.env.*
+*.pem
+*.key
+
+# Databases and user data (ENG-04: all data lives behind core; never in git)
+*.db
+*.sqlite
+*.sqlite3
+*.sqlcipher
+
+# Logs (PRIV-05: long logs go to desktop/logs/ which is git-ignored)
+logs/
+desktop/logs/
+
+# Fetched engines, Tor and model files (fetched by pinned scripts, never committed)
+desktop/gecko/firefox-source/
+desktop/gecko/obj-*/
+desktop/blink/cef/
+*.tar.bz2
+*.tar.xz
+
+# OS noise
+Thumbs.db
+.DS_Store

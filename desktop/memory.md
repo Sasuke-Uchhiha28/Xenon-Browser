@@ -41,15 +41,37 @@
   overlay repositioned in OnWindowBoundsChanged (154 signature takes
   only new_bounds). Sandbox ON: Windows = bootstrap.exe + xenon-blink.dll
   (USE_SANDBOX default On, CEF_USE_BOOTSTRAP export RunWinMain), Linux =
-  SUID chrome-sandbox. Popups open in own Alloy windows. **Locally run
-  and alive on the owner's machine** (xenon-blink.exe --url=https://example.com;
-  5 sandboxed processes); owner visual confirmation of the window is the
-  remaining sub-step 2 evidence. **Remaining in M1.4:** sub-step 3 (core
-  child process + Bridge v0 + conformance tests; also: no-tab state shows
-  the UI start page instead of the overlay), sub-step 4 = spikes S2
-  (popover via AddOverlayView above web content) and S8 (Chrome
-  extensions — Chrome-style view candidates; owner decides tab view
-  style). 3 (core child process + Bridge v0
+  SUID chrome-sandbox. Popups open in own Alloy windows.
+
+  **SUB-STEP 2 DEBUGGING SESSION (2026-10-06 evening) — big findings:**
+  1. FIXED (root cause of blank window): `CefExecuteProcess` was called
+     with a NULL app, so child processes never received
+     OnRegisterCustomSchemes; the renderer refused to commit xenon://ui
+     (ERR_ABORTED after a 200 from the handler). Fix: create XenonApp
+     BEFORE CefExecuteProcess and pass it (both OS entry paths).
+  2. FIXED: my path-traversal guard rejected EVERY URL (paths always
+     start with "/"); now strips the leading slash instead.
+  3. FIXED: resource handler contract — serve from memory with a KNOWN
+     response_length (content_.size()), ReadResponse returns
+     bytes_read>0 and false at exhaustion (reference:
+     tests/cefclient/browser/scheme_test.cc). With length -1 the loader
+     never commits. Temporary LOG()/file diagnostics were removed.
+  4. VERIFIED via CDP (--remote-debugging-port=9222 + websocket-client,
+     dev-only): the UI view commits xenon://ui/index.html, React mounts,
+     tablist + chrome render, title "Xenon".
+  5. OPEN QUESTION for the owner (window is open on their machine): does
+     the content area show https://example.com? The tab BrowserView is
+     created (verified non-null) and added via AddOverlayView, but its
+     page does NOT appear as a DevTools target — either overlay browsers
+     are not exposed to DevTools (possible) or the overlay browser fails
+     to load. If the owner sees a blank content area: debug the overlay
+     browser next session (try a child CefPanel with a BoxLayout instead
+     of AddOverlayView, or check CEF overlay+browser-view requirements).
+  6. BUILD DISCIPLINE (cost an hour): ALWAYS kill xenon-blink.exe before
+     rebuilding (LNK1104 lock failure is silent in filtered output) and
+     NEVER filter build output through grep — a CefString assignment
+     error hid behind `tail -1`/`grep error` filters and the stale DLL
+     kept failing diagnostics. Verify dll mtime after every build. 3 (core child process + Bridge v0
   + conformance tests) — stop-and-report after each; sub-step 4 = spikes
   S2 (popover above web views) and S8 (Chrome extensions in a multi-tab
   Alloy design — decides the tab view style BEFORE building out;

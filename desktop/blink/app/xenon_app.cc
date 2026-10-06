@@ -52,16 +52,7 @@ class XenonWindowDelegate : public CefWindowDelegate {
   XenonWindowDelegate& operator=(const XenonWindowDelegate&) = delete;
 
   void OnWindowCreated(CefRefPtr<CefWindow> window) override {
-    // FillLayout gives the UI view the whole window; the tab view is an
-    // absolutely positioned overlay above it (CEF_DOCKING_MODE_CUSTOM
-    // leaves the bounds to us).
-    window->SetToFillLayout();
     window->AddChildView(ui_view_);
-    if (tab_view_) {
-      overlay_ = window->AddOverlayView(tab_view_, CEF_DOCKING_MODE_CUSTOM,
-                                        true);
-      UpdateOverlay(window, overlay_);
-    }
     window->Show();
   }
 
@@ -189,10 +180,14 @@ void XenonApp::OnContextInitialized() {
 
   // The privileged UI document. Without a UI build present the view
   // stays blank rather than loading anything remote (Design.md 4.1).
+  std::string ui_url = CommandLineSwitch("ui-url");
+  if (ui_url.empty()) {
+    ui_url = "xenon://ui/index.html";
+  }
   CefRefPtr<XenonHandler> ui_handler(new XenonHandler(true));
   CefRefPtr<CefBrowserView> ui_view = CefBrowserView::CreateBrowserView(
-      ui_handler, "xenon://ui/index.html", browser_settings, nullptr,
-      nullptr, new XenonBrowserViewDelegate());
+      ui_handler, ui_url, browser_settings, nullptr, nullptr,
+      new XenonBrowserViewDelegate());
 
   // The first tab loads the URL given on the command line (default:
   // a plain HTTPS site) so navigation is provable without any UI wiring.

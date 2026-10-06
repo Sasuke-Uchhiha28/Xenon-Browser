@@ -20,9 +20,14 @@ namespace {
 int RunMain(HINSTANCE hInstance, void* sandbox_info) {
   CefMainArgs main_args(hInstance);
 
+  // The app must reach CHILD processes too: custom schemes are registered
+  // via CefApp::OnRegisterCustomSchemes in every process, and the
+  // renderer refuses to commit URLs whose scheme it does not know.
+  CefRefPtr<XenonApp> app(new XenonApp);
+
   // Sub-process dispatch: returns >= 0 when this invocation is a
   // render/GPU/utility child process.
-  int exit_code = CefExecuteProcess(main_args, nullptr, sandbox_info);
+  int exit_code = CefExecuteProcess(main_args, app, sandbox_info);
   if (exit_code >= 0) {
     return exit_code;
   }
@@ -31,7 +36,8 @@ int RunMain(HINSTANCE hInstance, void* sandbox_info) {
   command_line->InitFromString(::GetCommandLineW());
 
   CefSettings settings;
-  CefRefPtr<XenonApp> app(new XenonApp);
+  settings.log_severity = LOGSEVERITY_WARNING;
+  CefString(&settings.log_file).FromASCII("xenon-blink.log");
 
   if (!CefInitialize(main_args, settings, app.get(), sandbox_info)) {
     return CefGetExitCode();
@@ -101,7 +107,10 @@ int XIOErrorHandlerImpl(Display* display) {
 int main(int argc, char* argv[]) {
   CefMainArgs main_args(argc, argv);
 
-  int exit_code = CefExecuteProcess(main_args, nullptr, nullptr);
+  // The app must reach CHILD processes too (see the Windows note).
+  CefRefPtr<XenonApp> app(new XenonApp);
+
+  int exit_code = CefExecuteProcess(main_args, app, nullptr);
   if (exit_code >= 0) {
     return exit_code;
   }
@@ -111,7 +120,6 @@ int main(int argc, char* argv[]) {
   XSetIOErrorHandler(XIOErrorHandlerImpl);
 
   CefSettings settings;
-  CefRefPtr<XenonApp> app(new XenonApp);
 
   if (!CefInitialize(main_args, settings, app.get(), nullptr)) {
     return CefGetExitCode();

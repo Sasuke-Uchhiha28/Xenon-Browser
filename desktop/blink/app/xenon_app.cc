@@ -52,15 +52,26 @@ void UpdateOverlay(CefRefPtr<CefWindow> window,
 class XenonWindowDelegate : public CefWindowDelegate {
  public:
   XenonWindowDelegate(CefRefPtr<CefBrowserView> ui_view,
-                      CefRefPtr<CefBrowserView> tab_view)
-      : ui_view_(ui_view), tab_view_(tab_view) {}
+                      CefRefPtr<CefBrowserView> tab_view,
+                      const std::string& url)
+      : ui_view_(ui_view), tab_view_(tab_view), url_(url) {}
 
   XenonWindowDelegate(const XenonWindowDelegate&) = delete;
   XenonWindowDelegate& operator=(const XenonWindowDelegate&) = delete;
 
   void OnWindowCreated(CefRefPtr<CefWindow> window) override {
+    window->SetToFillLayout();
     window->AddChildView(ui_view_);
     window->Show();
+    if (tab_view_) {
+      overlay_ = window->AddOverlayView(tab_view_, CEF_DOCKING_MODE_CUSTOM,
+                                        true);
+      UpdateOverlay(window, overlay_);
+      CefRefPtr<CefBrowser> tab = tab_view_->GetBrowser();
+      if (tab) {
+        tab->GetMainFrame()->LoadURL(url_);
+      }
+    }
   }
 
   void OnWindowBoundsChanged(CefRefPtr<CefWindow> window,
@@ -101,6 +112,7 @@ class XenonWindowDelegate : public CefWindowDelegate {
   CefRefPtr<CefBrowserView> ui_view_;
   CefRefPtr<CefBrowserView> tab_view_;
   CefRefPtr<CefOverlayController> overlay_;
+  std::string url_;
 
   IMPLEMENT_REFCOUNTING(XenonWindowDelegate);
 };
@@ -204,10 +216,12 @@ void XenonApp::OnContextInitialized() {
   if (url.empty()) {
     url = "https://example.com";
   }
+  // Empty initial URL: the load happens after overlay attachment, which
+  // aborts in-flight provisional loads created before attachment.
   CefRefPtr<CefBrowserView> tab_view = CefBrowserView::CreateBrowserView(
-      tab_handler, url, browser_settings, nullptr, nullptr,
+      tab_handler, std::string(), browser_settings, nullptr, nullptr,
       new XenonBrowserViewDelegate());
 
   CefWindow::CreateTopLevelWindow(
-      new XenonWindowDelegate(ui_view, tab_view));
+      new XenonWindowDelegate(ui_view, tab_view, url));
 }

@@ -13,8 +13,27 @@
   rustup auto-installs a minimal toolchain in CI, so `rustup component add
   rustfmt clippy` runs explicitly first). Dev-only key override env var
   documented in memory.
-- **Next: M1.4 (Blink host skeleton)** — CEF host, sub-steps with stop-and-report.
-- **No browser exists yet.** First runnable skeleton: M1.4 / M1.5.
+- **Phase 1, M1.4 (Blink host skeleton): sub-step 1 of 4 COMPLETE.** Pinned
+  CEF 154.0.34+g14c5a08+chromium-154.0.8037.98 (stable, same version both
+  platforms, standard distribution, SHA-1 verified from the official
+  cef-builds CDN — SHA-1 is the only digest CEF publishes).
+  `desktop/tools/fetch-cef.py` downloads, verifies and extracts into the
+  git-ignored `desktop/blink/cef/<platform>/` (top-level dir stripped).
+  `.github/workflows/blink.yml` builds the UNMODIFIED cefsimple sample on
+  Windows and Linux and uploads artifacts. The sample BUILDS on both
+  platforms (CI runs c8da63c/c90432e proved it); artifact paths use CEF's
+  real output layout `build/tests/cefsimple/Release/` (learned via
+  diagnostic annotations). **Remaining in M1.4:** confirm the final run
+  (c90432e) uploaded artifacts; then sub-step 2 (Xenon window: UI view +
+  one tab view loading a URL), sub-step 3 (core child process + Bridge v0
+  + conformance tests) — stop-and-report after each; sub-step 4 = spikes
+  S2 (popover above web views) and S8 (Chrome extensions in a multi-tab
+  Alloy design — decides the tab view style BEFORE building out;
+  candidates in Architecture.md 13).
+- **Phase 1, M1.1–M1.3: DONE** (repo/tooling; shared UI + Bridge v0 +
+  MockHost; core skeleton + keystore + master-password plumbing + Linux
+  keyring CI verification). 53 Rust tests, 53 UI tests, all CI green.
+- **No browser exists yet.**
 
 # Decisions
 

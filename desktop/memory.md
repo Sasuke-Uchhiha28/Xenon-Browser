@@ -59,8 +59,10 @@
   4. VERIFIED via CDP (--remote-debugging-port=9222 + websocket-client,
      dev-only): the UI view commits xenon://ui/index.html, React mounts,
      tablist + chrome render, title "Xenon".
-  5. **TAB OVERLAY SOLVED (2026-10-06 23:00, commit fec1304, blink CI
-     green).** Root cause of the missing tab: CreateBrowserView with an
+  5. **SUB-STEP 2 ACCEPTED by owner (2026-10-06 23:12 screenshot): the
+     real example.com page renders inside the tab overlay, framed by the
+     working chrome + sidebar in the real Blink host.** TAB OVERLAY
+     SOLVED (23:00, commit fec1304, blink CI green). Root cause of the missing tab: CreateBrowserView with an
      initial URL starts a provisional load that is ABORTED when the view
      is attached as a window overlay. Fix: create the tab view with NO
      URL, attach via AddOverlayView, then LoadURL through the attached

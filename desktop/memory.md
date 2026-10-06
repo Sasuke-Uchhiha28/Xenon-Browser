@@ -60,10 +60,15 @@
   `XENON_CORE_SETUP_MASTER_PASSWORD` (migrate to wrapped), `XENON_CORE_MASTER_PASSWORD`
   (unlock), `XENON_CORE_KEYSTORE_ACCOUNT` (tests must set this so the real
   `core/db-key` entry is never touched). UI password prompting comes later.
-- 2026-10-05: **Linux keystore runtime-verified in CI:** the core job starts
-  a headless gnome-keyring inside `dbus-run-session` and sets
-  `XENON_FORCE_KEYSTORE_TEST=1`; without that variable the keystore test
-  skips on Linux (no daemon locally).
+- 2026-10-05: **Linux keystore runtime-verified in CI — RESOLVED.** The core
+  job runs a headless gnome-keyring inside `dbus-run-session` (canonical
+  recipe: ONE daemon, `echo "" | gnome-keyring-daemon --unlock` with a real
+  newline) and sets `XENON_FORCE_KEYSTORE_TEST=1`; all four CI jobs green.
+  Without that variable the keystore test skips on Linux (no daemon
+  locally). Debugging notes: empty `echo -n ""` may exit the daemon; two
+  daemons (--start AND --unlock) is wrong; CI failures are emitted as
+  `::error::` annotations (readable anonymously; job logs and artifacts
+  need repository auth).
 - 2026-10-05: MockHost is dynamically imported and lands in its own chunk
   (`dist/assets/mock-host-*.js`); release packaging (M1.6) must exclude that
   chunk. Recorded as a known issue until then.
@@ -134,7 +139,6 @@ pyyaml (local only). Fonts: SIL OFL 1.1 (x3) + Apache-2.0 (Material Symbols)
   mounts nothing. Fix: kill the stray node process, delete
   `desktop/ui/node_modules/.vite`, `npm run dev` again. Dev-only; production
   builds are unaffected. Diagnosed and fixed 2026-10-05.
-- **OFL font license needs owner ratification** (decision above).
 - MockHost chunk must be excluded from release packaging in M1.6.
 - SearXNG instance URL placeholder; final list + settings UI in M2.5.
 - Design.md §11 has unconfirmed assumptions (dark-only theme, hidden 4.4

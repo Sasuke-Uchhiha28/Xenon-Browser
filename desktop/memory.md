@@ -59,7 +59,25 @@
   4. VERIFIED via CDP (--remote-debugging-port=9222 + websocket-client,
      dev-only): the UI view commits xenon://ui/index.html, React mounts,
      tablist + chrome render, title "Xenon".
-  5. **TAB OVERLAY BLOCKED (sub-step 2's remaining piece).** The owner
+  5. **TAB OVERLAY BLOCKED (sub-step 2's remaining piece) — UPDATE
+     2026-10-06 22:50.** Decisive test with a verified-fresh DLL:
+     CefWindowDelegate::OnWindowChanged NEVER FIRES for AddChildView on
+     the window (the "context initialized" note fires, the
+     OnWindowChanged note does not) — so the cefclient-style sequence
+     was dead code here. Solid facts: OnAfterCreated fires only for the
+     UI browser; AddOverlayView (before Show / after Show / posted task)
+     never materializes the tab browser. NEXT SESSION, in order: (a)
+     diff cefclient's FULL window setup — their ViewsWindow may differ
+     in layout/theme handling that makes overlays create browsers;
+     (b) if no quick difference: propose the two-region design to the
+     owner — the UI document renders twice (chrome strip + sidebar rail)
+     via ?region=, window = BoxLayout(HORIZONTAL): [sidebar view 56px |
+     BoxLayout(VERTICAL): [chrome view 72px | tab view flex]] — pure
+     BoxLayout, no overlay, tabs become normal AddChildView children
+     (which provably creates browsers). It renders the UI document twice
+     (owner OK needed per Architecture 7 "UI is an Alloy-style
+     BrowserView" singular). Also pending: window icon (blue circle now),
+     CefSettings.root_cache_path → %APPDATA%/Xenon (sub-step 3). The owner
      confirmed: UI renders perfectly, example.com does NOT appear. Root
      fact (from the 154 header docs): "The underlying CefBrowser will
      not be created until this view is added to the views hierarchy" —

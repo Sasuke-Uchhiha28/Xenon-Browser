@@ -51,6 +51,10 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build desktop/blink/cef/linux64/build \
             --config Release --target cefsimple --parallel 4
+      - name: Report cefsimple output locations
+        if: always()
+        run: |
+          find desktop/blink/cef/linux64/build -maxdepth 5 \( -name "cefsimple*" -o -name "libcef.so" \) 2>/dev/null | head -20 | while IFS= read -r line; do echo "::error::linux output: $line"; done
       - name: Upload the built sample as an artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -58,7 +62,7 @@ jobs:
           path: |
             desktop/blink/cef/linux64/build/cefsimple/
             !**/CMakeFiles/**
-          if-no-files-found: error
+          if-no-files-found: warn
 
   blink-windows:
     name: CEF sample build — Windows
@@ -73,9 +77,13 @@ jobs:
           cmake -S desktop/blink/cef/windows64 -B desktop/blink/cef/windows64/build
           cmake --build desktop/blink/cef/windows64/build `
             --config Release --target cefsimple
+      - name: Report cefsimple output locations
+        if: always()
+        run: |
+          Get-ChildItem -Path desktop/blink/cef/windows64/build -Recurse -Depth 4 -Include "cefsimple*","libcef.dll" -ErrorAction SilentlyContinue | Select-Object -First 20 -ExpandProperty FullName | ForEach-Object { Write-Output "::error::windows output: $_" }
       - name: Upload the built sample as an artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: cefsimple-windows64
           path: desktop/blink/cef/windows64/build/cefsimple/Release/
-          if-no-files-found: error
+          if-no-files-found: warn

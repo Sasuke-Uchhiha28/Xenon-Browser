@@ -23,9 +23,10 @@
   Windows and Linux and uploads artifacts. The sample BUILDS on both
   platforms (CI runs c8da63c/c90432e proved it); artifact paths use CEF's
   real output layout `build/tests/cefsimple/Release/` (learned via
-  diagnostic annotations). **Remaining in M1.4:** confirm the final run
-  (c90432e) uploaded artifacts; then sub-step 2 (Xenon window: UI view +
-  one tab view loading a URL), sub-step 3 (core child process + Bridge v0
+  diagnostic annotations). **Sub-step 1 ACCEPTED: final run 37445970411
+  green on both OSes with artifacts cefsimple-windows64 (189.8 MB) and
+  cefsimple-linux64 (366.3 MB) uploaded.** **Remaining in M1.4:** sub-step
+  2 (Xenon window: UI view + one tab view loading a URL), sub-step 3 (core child process + Bridge v0
   + conformance tests) — stop-and-report after each; sub-step 4 = spikes
   S2 (popover above web views) and S8 (Chrome extensions in a multi-tab
   Alloy design — decides the tab view style BEFORE building out;

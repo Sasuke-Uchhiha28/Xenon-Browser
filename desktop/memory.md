@@ -59,14 +59,30 @@
   4. VERIFIED via CDP (--remote-debugging-port=9222 + websocket-client,
      dev-only): the UI view commits xenon://ui/index.html, React mounts,
      tablist + chrome render, title "Xenon".
-  5. OPEN QUESTION for the owner (window is open on their machine): does
-     the content area show https://example.com? The tab BrowserView is
-     created (verified non-null) and added via AddOverlayView, but its
-     page does NOT appear as a DevTools target — either overlay browsers
-     are not exposed to DevTools (possible) or the overlay browser fails
-     to load. If the owner sees a blank content area: debug the overlay
-     browser next session (try a child CefPanel with a BoxLayout instead
-     of AddOverlayView, or check CEF overlay+browser-view requirements).
+  5. **TAB OVERLAY BLOCKED (sub-step 2's remaining piece).** The owner
+     confirmed: UI renders perfectly, example.com does NOT appear. Root
+     fact (from the 154 header docs): "The underlying CefBrowser will
+     not be created until this view is added to the views hierarchy" —
+     and AddOverlayView does NOT trigger that creation. Verified via a
+     temporary OnAfterCreated file-note: only the UI browser (ui=1) is
+     ever created. FOUR overlay-attach sequences all failed to create
+     the tab browser: (a) in OnWindowCreated before Show, (b) after
+     Show, (c) inside OnWindowChanged (cefclient's ViewsWindow pattern —
+     cefclient does this for its overlay browser), (d) posted as a
+     follow-up UI task. cefclient's ViewsOverlayBrowser uses the SAME
+     calls (CreateBrowserView + AddOverlayView CUSTOM) — the missing
+     ingredient is still unknown; next session should re-read
+     tests/cefclient/browser/views_window.cc + views_overlay_browser.cc
+     and diff the ENTIRE flow (e.g. their window is created with the
+     overlay browser view as the INITIAL child? or check
+     ViewsOverlayControls' Initialize which adds NON-browser overlays
+     that DO work), or fall back to two-region BoxLayout (needs the
+     owner's OK: the UI document renders twice as chrome + sidebar
+     regions). REMOVE the two temporary diagnostic notes first
+     (xenon_handler.cc OnAfterCreated file note — removed 2026-10-06
+     22:43; xenon_app.cc notes — removed). Commit 8c8ef0a + follow-ups:
+     the UI-only state is committed and WORKS (owner screenshot: full
+     chrome + start page in the real host).
   6. BUILD DISCIPLINE (cost an hour): ALWAYS kill xenon-blink.exe before
      rebuilding (LNK1104 lock failure is silent in filtered output) and
      NEVER filter build output through grep — a CefString assignment

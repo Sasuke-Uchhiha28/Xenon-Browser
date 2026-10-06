@@ -10,6 +10,8 @@
 #include "include/views/cef_browser_view.h"
 #include "include/views/cef_fill_layout.h"
 #include "include/views/cef_window.h"
+#include "include/base/cef_bind.h"
+#include "include/cef_task.h"
 #include "include/wrapper/cef_helpers.h"
 
 namespace {
@@ -27,16 +29,21 @@ CefRect ContentRectFor(const CefRect& window_bounds) {
                  window_bounds.height - kChromeHeight);
 }
 
-// Negative sizes would confuse the overlay; skip until the window has a
-// real client area (the first bounds change after Show fixes it up).
+// Position and show the overlay over the content area, mirroring the
+// reference implementation (tests/cefclient/browser/
+// views_overlay_browser.cc): SetSize, SetBounds, then SetVisible.
 void UpdateOverlay(CefRefPtr<CefWindow> window,
                    CefRefPtr<CefOverlayController> overlay) {
   if (!overlay) {
     return;
   }
-  const CefRect& content = ContentRectFor(window->GetClientAreaBoundsInScreen());
+  const CefRect& content = ContentRectFor(window->GetBounds());
   if (content.width > 0 && content.height > 0) {
+    overlay->SetSize(CefSize(content.width, content.height));
     overlay->SetBounds(content);
+    overlay->SetVisible(true);
+  } else {
+    overlay->SetVisible(false);
   }
 }
 
@@ -90,6 +97,7 @@ class XenonWindowDelegate : public CefWindowDelegate {
   }
 
  private:
+  CefRefPtr<CefWindow> window_;
   CefRefPtr<CefBrowserView> ui_view_;
   CefRefPtr<CefBrowserView> tab_view_;
   CefRefPtr<CefOverlayController> overlay_;

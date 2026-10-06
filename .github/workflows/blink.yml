@@ -1,11 +1,12 @@
-# Blink host CI (Milestone M1.4, sub-step 1).
+# Blink host CI (Milestone M1.4, sub-step 2).
 #
-# Proves the CEF toolchain on Windows and Linux by building the
-# UNMODIFIED CEF sample application (cefsimple) from the pinned CEF
-# binary distribution. Nothing here is Xenon code yet; that starts in
-# sub-step 2. The pinned version and its SHA-1 live in
-# desktop/tools/fetch-cef.py; the extracted tree is never committed
-# (ENG-05) and lands in the git-ignored desktop/blink/cef/ folder.
+# Builds the Xenon host (desktop/blink/app) against the pinned CEF
+# distribution on Windows and Linux, and packages a runnable bundle:
+# the host executable with all CEF binaries/resources plus the built
+# shared UI (served through xenon://ui at runtime). The pinned version
+# and its SHA-1 live in desktop/tools/fetch-cef.py; the extracted tree
+# is never committed (ENG-05) and lands in the git-ignored
+# desktop/blink/cef/ folder.
 
 name: blink
 
@@ -14,24 +15,28 @@ on:
     paths:
       - ".github/workflows/blink.yml"
       - "desktop/tools/fetch-cef.py"
+      - "desktop/tools/stage-blink.py"
       - "desktop/blink/**"
+      - "desktop/ui/**"
   pull_request:
     paths:
       - ".github/workflows/blink.yml"
       - "desktop/tools/fetch-cef.py"
+      - "desktop/tools/stage-blink.py"
       - "desktop/blink/**"
+      - "desktop/ui/**"
 
 permissions:
   contents: read
 
 jobs:
   blink-linux:
-    name: CEF sample build — Linux
+    name: Xenon Blink host — Linux
     runs-on: ubuntu-24.04
     steps:
       - name: Check out the repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      # Development headers cefsimple links against (X11, GBM, NSS, audio).
+      # Development headers cefsimple/xenon-blink link against.
       - name: Install CEF build dependencies
         run: |
           sudo apt-get update -qq
@@ -43,39 +48,69 @@ jobs:
             libnss3-dev libasound2-dev libatk1.0-dev libatk-bridge2.0-dev \
             libcups2-dev libdrm-dev libpango1.0-dev libcairo2-dev \
             libglib2.0-dev libudev-dev
+      - name: Set up Node.js for the shared UI build
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/ui/package-lock.json
+      - name: Install UI dependencies and build
+        run: |
+          npm ci --prefix desktop/ui
+          npm run build --prefix desktop/ui
       - name: Download, verify and extract the pinned CEF distribution
         run: python3 desktop/tools/fetch-cef.py --platform linux64
-      - name: Configure and build the unmodified cefsimple sample
+      - name: Stage the Xenon host into the CEF tree
+        run: python3 desktop/tools/stage-blink.py --platform linux64
+      - name: Configure and build the Xenon host
         run: |
           cmake -S desktop/blink/cef/linux64 -B desktop/blink/cef/linux64/build \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build desktop/blink/cef/linux64/build \
-            --config Release --target cefsimple --parallel 4
-      - name: Upload the built sample as an artifact
+            --config Release --target xenon-blink --parallel 4
+      - name: Bundle the UI into the host output
+        run: |
+          cmake -E copy_directory desktop/ui/dist \
+            desktop/blink/cef/linux64/build/tests/xenon/Release/ui
+      - name: Upload the runnable host bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: cefsimple-linux64
-          path: |
-            desktop/blink/cef/linux64/build/tests/cefsimple/Release/
-            !**/CMakeFiles/**
+          name: xenon-blink-linux64
+          path: desktop/blink/cef/linux64/build/tests/xenon/Release/
           if-no-files-found: error
 
   blink-windows:
-    name: CEF sample build — Windows
+    name: Xenon Blink host — Windows
     runs-on: windows-latest
     steps:
       - name: Check out the repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Set up Node.js for the shared UI build
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: desktop/ui/package-lock.json
+      - name: Install UI dependencies and build
+        run: |
+          npm ci --prefix desktop/ui
+          npm run build --prefix desktop/ui
       - name: Download, verify and extract the pinned CEF distribution
         run: python desktop/tools/fetch-cef.py --platform windows64
-      - name: Configure and build the unmodified cefsimple sample
+      - name: Stage the Xenon host into the CEF tree
+        run: python desktop/tools/stage-blink.py --platform windows64
+      - name: Configure and build the Xenon host
         run: |
           cmake -S desktop/blink/cef/windows64 -B desktop/blink/cef/windows64/build
           cmake --build desktop/blink/cef/windows64/build `
-            --config Release --target cefsimple
-      - name: Upload the built sample as an artifact
+            --config Release --target xenon-blink
+      - name: Bundle the UI into the host output
+        run: |
+          cmake -E copy_directory desktop/ui/dist `
+            desktop/blink/cef/windows64/build/tests/xenon/Release/ui
+      - name: Upload the runnable host bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: cefsimple-windows64
-          path: desktop/blink/cef/windows64/build/tests/cefsimple/Release/
+          name: xenon-blink-windows64
+          path: desktop/blink/cef/windows64/build/tests/xenon/Release/
           if-no-files-found: error

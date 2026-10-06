@@ -59,8 +59,19 @@
   4. VERIFIED via CDP (--remote-debugging-port=9222 + websocket-client,
      dev-only): the UI view commits xenon://ui/index.html, React mounts,
      tablist + chrome render, title "Xenon".
-  5. **TAB OVERLAY BLOCKED (sub-step 2's remaining piece) — UPDATE
-     2026-10-06 22:50.** Decisive test with a verified-fresh DLL:
+  5. **TAB OVERLAY SOLVED (2026-10-06 23:00, commit fec1304, blink CI
+     green).** Root cause of the missing tab: CreateBrowserView with an
+     initial URL starts a provisional load that is ABORTED when the view
+     is attached as a window overlay. Fix: create the tab view with NO
+     URL, attach via AddOverlayView, then LoadURL through the attached
+     browser (GetBrowser()->GetMainFrame()->LoadURL). DevTools verified
+     BOTH pages live: example.com (title "Example Domain") + xenon://ui
+     (title "Xenon"). Note for S2: overlay browsers DO appear in
+     DevTools once they navigate; the earlier "no target" was this same
+     abort. The UI start page is covered while a tab overlay exists —
+     the no-tab state (show the start page instead) is part of sub-step
+     3 Bridge work. The old item 5 text about the overlay being blocked
+     is OBSOLETE. Decisive test with a verified-fresh DLL:
      CefWindowDelegate::OnWindowChanged NEVER FIRES for AddChildView on
      the window (the "context initialized" note fires, the
      OnWindowChanged note does not) — so the cefclient-style sequence

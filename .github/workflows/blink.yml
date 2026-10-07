@@ -1,12 +1,17 @@
-# Blink host CI (Milestone M1.4, sub-step 2).
+# Blink host CI (Milestone M1.4, sub-step 3).
 #
-# Builds the Xenon host (desktop/blink/app) against the pinned CEF
-# distribution on Windows and Linux, and packages a runnable bundle:
-# the host executable with all CEF binaries/resources plus the built
-# shared UI (served through xenon://ui at runtime). The pinned version
-# and its SHA-1 live in desktop/tools/fetch-cef.py; the extracted tree
-# is never committed (ENG-05) and lands in the git-ignored
-# desktop/blink/cef/ folder.
+# Builds, on Windows and Linux:
+#   1. the shared UI (desktop/ui) — served over xenon://ui at runtime,
+#   2. the Xenon core (desktop/core, cargo release) — the encrypted
+#      database + JSON-RPC service spawned as a child process,
+#   3. the Xenon host (desktop/blink/app) against the pinned CEF
+#      distribution,
+# and then runs the host's --check-core smoke test: it spawns the freshly
+# built core, performs the JSON-RPC handshake and a settings round trip
+# through a real SQLCipher database, headless. The bundle (host + core +
+# UI + CEF runtime) is uploaded as a runnable artifact. The pinned CEF
+# version and SHA-1 live in desktop/tools/fetch-cef.py; the CEF tree is
+# never committed (ENG-05) and lands in the git-ignored desktop/blink/cef/.
 
 name: blink
 
@@ -18,6 +23,7 @@ on:
       - "desktop/tools/stage-blink.py"
       - "desktop/blink/**"
       - "desktop/ui/**"
+      - "desktop/core/**"
   pull_request:
     paths:
       - ".github/workflows/blink.yml"
@@ -25,6 +31,7 @@ on:
       - "desktop/tools/stage-blink.py"
       - "desktop/blink/**"
       - "desktop/ui/**"
+      - "desktop/core/**"
 
 permissions:
   contents: read
@@ -36,7 +43,7 @@ jobs:
     steps:
       - name: Check out the repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      # Development headers cefsimple/xenon-blink link against.
+      # Development headers the host links against.
       - name: Install CEF build dependencies
         run: |
           sudo apt-get update -qq
@@ -58,6 +65,8 @@ jobs:
         run: |
           npm ci --prefix desktop/ui
           npm run build --prefix desktop/ui
+      - name: Build the Xenon core (release)
+        run: cargo build --release --manifest-path desktop/core/Cargo.toml -p xenon-core
       - name: Download, verify and extract the pinned CEF distribution
         run: python3 desktop/tools/fetch-cef.py --platform linux64
       - name: Stage the Xenon host into the CEF tree
@@ -68,10 +77,16 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release
           cmake --build desktop/blink/cef/linux64/build \
             --config Release --target xenon-blink --parallel 4
-      - name: Bundle the UI into the host output
+      - name: Bundle the core and UI into the host output
         run: |
+          cmake -E copy desktop/core/target/release/xenon-core \
+            desktop/blink/cef/linux64/build/tests/xenon/Release/xenon-core
           cmake -E copy_directory desktop/ui/dist \
             desktop/blink/cef/linux64/build/tests/xenon/Release/ui
+      - name: Core smoke test (spawn + JSON-RPC round trip)
+        run: |
+          cd desktop/blink/cef/linux64/build/tests/xenon/Release
+          ./xenon-blink --check-core
       - name: Upload the runnable host bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -95,6 +110,8 @@ jobs:
         run: |
           npm ci --prefix desktop/ui
           npm run build --prefix desktop/ui
+      - name: Build the Xenon core (release)
+        run: cargo build --release --manifest-path desktop/core/Cargo.toml -p xenon-core
       - name: Download, verify and extract the pinned CEF distribution
         run: python desktop/tools/fetch-cef.py --platform windows64
       - name: Stage the Xenon host into the CEF tree
@@ -104,10 +121,16 @@ jobs:
           cmake -S desktop/blink/cef/windows64 -B desktop/blink/cef/windows64/build
           cmake --build desktop/blink/cef/windows64/build `
             --config Release --target xenon-blink
-      - name: Bundle the UI into the host output
+      - name: Bundle the core and UI into the host output
         run: |
+          cmake -E copy desktop/core/target/release/xenon-core.exe `
+            desktop/blink/cef/windows64/build/tests/xenon/Release/xenon-core.exe
           cmake -E copy_directory desktop/ui/dist `
             desktop/blink/cef/windows64/build/tests/xenon/Release/ui
+      - name: Core smoke test (spawn + JSON-RPC round trip)
+        run: |
+          cd desktop/blink/cef/windows64/build/tests/xenon/Release
+          .\xenon-blink.exe --check-core
       - name: Upload the runnable host bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

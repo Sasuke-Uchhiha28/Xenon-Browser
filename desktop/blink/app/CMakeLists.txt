@@ -8,6 +8,8 @@
 #
 
 set(XENON_SRCS
+  core_client.cc
+  core_client.h
   main.cc
   ui_scheme_handler.cc
   ui_scheme_handler.h

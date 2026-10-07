@@ -79,9 +79,19 @@
      OnWindowChanged note does not) — so the cefclient-style sequence
      was dead code here. Solid facts: OnAfterCreated fires only for the
      UI browser; AddOverlayView (before Show / after Show / posted task)
-     never materializes the tab browser. NEXT SESSION, in order: (a)
-     diff cefclient's FULL window setup — their ViewsWindow may differ
-     in layout/theme handling that makes overlays create browsers;
+     never materializes the tab browser. CORE CHILD PROCESS PLUMBING DONE (2026-10-07, sub-step 3 part 1):
+     desktop/blink/app/core_client.h/.cc — CoreRpcClient spawns
+     xenon-core with pipes, JSON-RPC over stdio with id-matched
+     responses, env = parent env overlaid with XENON_CORE_* (a bare
+     custom env block kills the child: no SystemRoot!), and
+     --check-core smoke mode in main.cc (headless, exit 0/1, verified
+     OK locally: hello + settings round trip). NEXT SESSION, in order:
+     (a) blink.yml: cargo build --release -p xenon-core, copy the binary
+     next to the host, add a --check-core smoke step per OS; (b) wire
+     the Bridge: CEF message router exposing window.xenonBridge to the
+     UI document, backed by tab overlay views + core data calls;
+     (c) conformance tests; (d) diff cefclient's full window setup if
+     overlay issues resurface (the diff was interrupted:
      (b) if no quick difference: propose the two-region design to the
      owner — the UI document renders twice (chrome strip + sidebar rail)
      via ?region=, window = BoxLayout(HORIZONTAL): [sidebar view 56px |

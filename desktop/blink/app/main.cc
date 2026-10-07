@@ -4,10 +4,86 @@
 // Sandbox note (SEC-01): no_sandbox is never set. On Windows the build
 // links cef_sandbox.lib and passes the sandbox information to CEF; on
 // Linux the chrome-sandbox helper is expected next to the executable.
+#include <chrono>
+#include <filesystem>
+#include <iostream>
 #include <string>
+#include <thread>
 
+#include "core_client.h"
 #include "xenon_app.h"
 #include "include/cef_command_line.h"
+
+namespace {
+
+// --check-core: spawn the core, round-trip a hello and a settings
+// write/read, print evidence, exit 0/1. Runs BEFORE any CEF setup so it
+// works headless (CI) — no window, no engine. Returns -1 when the flag
+// is absent (normal startup continues).
+int RunCheckCore() {
+  // Windows detects the flag from the command line (wWinMain has no
+  // argv); Linux checks argv in main() and only calls this when present.
+  bool requested = false;
+#if defined(OS_WIN)
+  requested = std::string(::GetCommandLineA()).find("--check-core") !=
+              std::string::npos;
+#endif
+  if (!requested) {
+    return -1;
+  }
+
+  CoreRpcClient client;
+  auto db = std::filesystem::temp_directory_path() / "xenon-check-core.db";
+  std::error_code ignored;
+  std::filesystem::remove(db, ignored);
+  std::string core = "xenon-core";
+#if defined(OS_WIN)
+  core += ".exe";
+#endif
+  if (!client.Start(core, db.string(), std::string(64, 'a'), "")) {
+    std::cout << "check-core FAILED: could not spawn " << core << std::endl;
+    return 1;
+  }
+
+  std::string hello_response;
+  client.Call("hello", "", [&](bool ok, const std::string& response) {
+    hello_response = ok ? response : "";
+  });
+  int attempts = 0;
+  while (hello_response.empty() && attempts++ < 50) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  if (hello_response.find("\"protocolVersion\":1") == std::string::npos) {
+    std::cout << "check-core FAILED: bad hello: " << hello_response
+              << std::endl;
+    client.Shutdown();
+    return 1;
+  }
+
+  client.Call("settings.set", "{\"key\":\"check\",\"value\":\"ok\"}",
+              [](bool, const std::string&) {});
+  std::string get_response;
+  client.Call("settings.get", "{\"key\":\"check\"}",
+              [&](bool ok, const std::string& response) {
+                get_response = ok ? response : "";
+              });
+  attempts = 0;
+  while (get_response.empty() && attempts++ < 50) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+  }
+  client.Shutdown();
+  if (get_response.find("\"value\":\"ok\"") == std::string::npos) {
+    std::cout << "check-core FAILED: settings round trip: " << get_response
+              << std::endl;
+    return 1;
+  }
+  std::filesystem::remove(db, ignored);
+  std::cout << "check-core OK: hello + settings round trip verified"
+            << std::endl;
+  return 0;
+}
+
+}  // namespace
 
 #if defined(OS_WIN)
 #include <windows.h>
@@ -18,6 +94,11 @@
 namespace {
 
 int RunMain(HINSTANCE hInstance, void* sandbox_info) {
+  int check = RunCheckCore();
+  if (check >= 0) {
+    return check;
+  }
+
   CefMainArgs main_args(hInstance);
 
   // The app must reach CHILD processes too: custom schemes are registered
@@ -31,9 +112,6 @@ int RunMain(HINSTANCE hInstance, void* sandbox_info) {
   if (exit_code >= 0) {
     return exit_code;
   }
-
-  CefRefPtr<CefCommandLine> command_line = CefCommandLine::CreateCommandLine();
-  command_line->InitFromString(::GetCommandLineW());
 
   CefSettings settings;
   settings.log_severity = LOGSEVERITY_WARNING;
@@ -105,6 +183,12 @@ int XIOErrorHandlerImpl(Display* display) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
+  for (int i = 1; i < argc; i++) {
+    if (std::string(argv[i]) == "--check-core") {
+      return RunCheckCore();
+    }
+  }
+
   CefMainArgs main_args(argc, argv);
 
   // The app must reach CHILD processes too (see the Windows note).
